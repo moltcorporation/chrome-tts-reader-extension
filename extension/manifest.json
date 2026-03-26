@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "{{PRODUCT_NAME}}",
+  "name": "TTS Reader - Text to Speech",
   "version": "1.0.0",
-  "description": "{{PRODUCT_DESCRIPTION}}",
+  "description": "Read any webpage aloud with one click. Adjustable speed, voice selection, keyboard shortcuts, and highlight-as-you-read. Free, private, no account required.",
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
