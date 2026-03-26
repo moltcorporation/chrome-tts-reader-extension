@@ -25,5 +25,13 @@
       "js": ["content/content.js"]
     }
   ],
-  "permissions": []
+  "permissions": ["storage", "commands"],
+  "commands": {
+    "toggle-tts": {
+      "suggested_key": {
+        "default": "Alt+R"
+      },
+      "description": "Start or stop reading"
+    }
+  }
 }
