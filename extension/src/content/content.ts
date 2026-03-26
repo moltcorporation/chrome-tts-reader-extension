@@ -1,11 +1,17 @@
+const API_BASE =
+  "https://chrome-tts-reader-extension-moltcorporation.vercel.app";
+
 interface ReadingState {
   isReading: boolean;
   isPaused: boolean;
   currentText: string;
   currentWord: number;
+  totalWords: number;
   words: string[];
   voiceIndex: number;
   speed: number;
+  isPro: boolean;
+  startTime: number;
 }
 
 let readingState: ReadingState = {
@@ -13,15 +19,37 @@ let readingState: ReadingState = {
   isPaused: false,
   currentText: "",
   currentWord: 0,
+  totalWords: 0,
   words: [],
   voiceIndex: 0,
   speed: 1,
+  isPro: false,
+  startTime: 0,
 };
 
 let highlightOverlay: HTMLElement | null = null;
-const HIGHLIGHT_CLASS = "__tts_highlight";
 
-// Create and style overlay element
+// NAV_SELECTORS: elements to skip when auto-skip-nav is enabled
+const NAV_SELECTORS = [
+  "nav",
+  "header",
+  "footer",
+  '[role="navigation"]',
+  '[role="banner"]',
+  '[role="contentinfo"]',
+  ".navbar",
+  ".nav",
+  ".header",
+  ".footer",
+  ".sidebar",
+  ".menu",
+  ".breadcrumb",
+  ".pagination",
+  "#cookie-banner",
+  ".cookie-notice",
+];
+
+// Create highlight overlay
 function createHighlightOverlay() {
   if (highlightOverlay) {
     highlightOverlay.remove();
@@ -38,48 +66,59 @@ function createHighlightOverlay() {
   document.body.appendChild(highlightOverlay);
 }
 
-// Extract text from page
-function extractText(): string {
+// Extract text from page, optionally skipping nav elements
+function extractText(autoSkipNav: boolean): string {
   const selection = window.getSelection();
   if (selection && selection.toString().length > 0) {
     return selection.toString();
   }
 
-  // Fall back to body text
-  const bodyText = document.body.innerText;
-  return bodyText || "No text found on this page";
+  if (autoSkipNav) {
+    // Try to find main content area first
+    const mainContent =
+      document.querySelector("main") ||
+      document.querySelector("article") ||
+      document.querySelector('[role="main"]') ||
+      document.querySelector(".content") ||
+      document.querySelector("#content");
+
+    if (mainContent) {
+      return mainContent.innerText || "";
+    }
+
+    // Fall back to body but skip nav elements
+    const clone = document.body.cloneNode(true) as HTMLElement;
+    NAV_SELECTORS.forEach((sel) => {
+      clone.querySelectorAll(sel).forEach((el) => el.remove());
+    });
+    return clone.innerText || "";
+  }
+
+  return document.body.innerText || "No text found on this page";
 }
 
-// Split text into words with boundaries
+// Split text into words
 function tokenizeWords(text: string): string[] {
   return text.match(/\S+(?:\s+)?/g) || [];
 }
 
-// Highlight current word
+// Highlight current word (Pro: word-level highlight)
 function highlightWord(wordIndex: number) {
   if (!highlightOverlay) return;
-
   highlightOverlay.innerHTML = "";
 
-  if (wordIndex >= readingState.words.length) {
-    return;
-  }
+  if (wordIndex >= readingState.words.length) return;
 
   const word = readingState.words[wordIndex];
-  const textWithoutHtml = readingState.currentText;
-  const position = textWithoutHtml.substring(0, wordIndex).split(" ").reduce((pos, w) => {
-    return pos + w.length + 1;
-  }, 0);
 
-  // Create a simple highlight bar
   const highlight = document.createElement("div");
   highlight.style.cssText = `
     position: fixed;
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: #FFD700;
-    color: #000;
+    background: ${readingState.isPro ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : "#FFD700"};
+    color: ${readingState.isPro ? "#fff" : "#000"};
     padding: 8px 16px;
     border-radius: 4px;
     font-weight: bold;
@@ -88,77 +127,125 @@ function highlightWord(wordIndex: number) {
     max-width: 80%;
     word-break: break-word;
   `;
-  highlight.textContent = `Reading: ${word.trim()}`;
+  highlight.textContent = word.trim();
   highlightOverlay.appendChild(highlight);
 }
 
-// Start text-to-speech
-function startTTS(text: string, voiceIndex: number, speed: number) {
-  if ("speechSynthesis" in window) {
-    speechSynthesis.cancel();
+// Report reading stats for Pro users
+async function reportStats(wordsRead: number) {
+  if (!readingState.isPro) return;
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = speed;
+  try {
+    const stored = await chrome.storage.local.get(["ttsUserId"]);
+    const userId = stored.ttsUserId;
+    if (!userId) return;
 
-    const voices = speechSynthesis.getVoices();
-    if (voices.length > voiceIndex && voiceIndex > 0) {
-      utterance.voice = voices[voiceIndex];
-    }
+    const now = new Date();
+    const date = now.toISOString().split("T")[0];
+    const minutesListened = Math.round(
+      (Date.now() - readingState.startTime) / 60000
+    );
 
-    readingState.isReading = true;
-    readingState.isPaused = false;
-    readingState.currentWord = 0;
-    readingState.voiceIndex = voiceIndex;
-    readingState.speed = speed;
-
-    // Update highlight as speech progresses
-    let lastWordIndex = 0;
-    utterance.onboundary = (event) => {
-      if (event.name === "word") {
-        const charIndex = event.charIndex || 0;
-        let wordIndex = 0;
-        let charCount = 0;
-
-        for (let i = 0; i < readingState.words.length; i++) {
-          if (charCount >= charIndex) {
-            wordIndex = i;
-            break;
-          }
-          charCount += readingState.words[i].length;
-        }
-
-        if (wordIndex !== lastWordIndex) {
-          readingState.currentWord = wordIndex;
-          highlightWord(wordIndex);
-          lastWordIndex = wordIndex;
-        }
-      }
-    };
-
-    utterance.onend = () => {
-      readingState.isReading = false;
-      readingState.isPaused = false;
-      if (highlightOverlay) {
-        highlightOverlay.innerHTML = "";
-      }
-      chrome.runtime.sendMessage({ action: "readingEnded" });
-    };
-
-    utterance.onerror = (event) => {
-      console.error("Speech error:", event.error);
-      readingState.isReading = false;
-      chrome.runtime.sendMessage({ action: "readingEnded" });
-    };
-
-    speechSynthesis.speak(utterance);
+    await fetch(`${API_BASE}/api/stats`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        date,
+        pagesRead: 1,
+        wordsRead,
+        minutesListened: Math.max(1, minutesListened),
+      }),
+    });
+  } catch {
+    // Stats reporting is best-effort
   }
 }
 
-// Handle messages from popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+// Start text-to-speech
+function startTTS(
+  text: string,
+  voiceIndex: number,
+  speed: number,
+  resumeFromWord?: number
+) {
+  if (!("speechSynthesis" in window)) return;
+
+  speechSynthesis.cancel();
+
+  let textToRead = text;
+  if (resumeFromWord && resumeFromWord > 0) {
+    const words = tokenizeWords(text);
+    textToRead = words.slice(resumeFromWord).join("");
+  }
+
+  const utterance = new SpeechSynthesisUtterance(textToRead);
+  utterance.rate = speed;
+
+  const voices = speechSynthesis.getVoices();
+  if (voices.length > voiceIndex && voiceIndex > 0) {
+    utterance.voice = voices[voiceIndex];
+  }
+
+  readingState.isReading = true;
+  readingState.isPaused = false;
+  readingState.currentWord = resumeFromWord || 0;
+  readingState.voiceIndex = voiceIndex;
+  readingState.speed = speed;
+  readingState.startTime = Date.now();
+
+  let lastWordIndex = resumeFromWord || 0;
+  utterance.onboundary = (event) => {
+    if (event.name === "word") {
+      const charIndex = event.charIndex || 0;
+      let wordIndex = resumeFromWord || 0;
+      let charCount = 0;
+      const resumeWords = tokenizeWords(textToRead);
+
+      for (let i = 0; i < resumeWords.length; i++) {
+        if (charCount >= charIndex) {
+          wordIndex = (resumeFromWord || 0) + i;
+          break;
+        }
+        charCount += resumeWords[i].length;
+      }
+
+      if (wordIndex !== lastWordIndex) {
+        readingState.currentWord = wordIndex;
+        highlightWord(wordIndex);
+        lastWordIndex = wordIndex;
+      }
+    }
+  };
+
+  utterance.onend = () => {
+    const wordsRead = readingState.currentWord - (resumeFromWord || 0);
+    readingState.isReading = false;
+    readingState.isPaused = false;
+    if (highlightOverlay) {
+      highlightOverlay.innerHTML = "";
+    }
+    chrome.runtime.sendMessage({ action: "readingEnded" });
+    reportStats(wordsRead);
+  };
+
+  utterance.onerror = (event) => {
+    console.error("Speech error:", event.error);
+    readingState.isReading = false;
+    chrome.runtime.sendMessage({ action: "readingEnded" });
+  };
+
+  speechSynthesis.speak(utterance);
+}
+
+// Handle messages from popup/background
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.action) {
     case "startReading": {
-      const text = extractText();
+      const autoSkipNav = message.autoSkipNav || false;
+      readingState.isPro = message.isPro || false;
+
+      const text = extractText(autoSkipNav);
       if (!text || text.length === 0) {
         sendResponse({ status: "notext" });
         return;
@@ -166,9 +253,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       readingState.currentText = text;
       readingState.words = tokenizeWords(text);
+      readingState.totalWords = readingState.words.length;
       createHighlightOverlay();
 
-      startTTS(text, message.voiceIndex, message.speed);
+      startTTS(
+        text,
+        message.voiceIndex,
+        message.speed,
+        message.resumeFromWord
+      );
       sendResponse({ status: "reading" });
       break;
     }
@@ -198,7 +291,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "updateSpeed": {
       if (readingState.isReading && "speechSynthesis" in window) {
         speechSynthesis.cancel();
-        startTTS(readingState.currentText, readingState.voiceIndex, message.speed);
+        startTTS(
+          readingState.currentText,
+          readingState.voiceIndex,
+          message.speed,
+          readingState.currentWord
+        );
       }
       sendResponse({ status: "speedUpdated" });
       break;
@@ -207,7 +305,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "updateVoice": {
       if (readingState.isReading && "speechSynthesis" in window) {
         speechSynthesis.cancel();
-        startTTS(readingState.currentText, message.voiceIndex, readingState.speed);
+        startTTS(
+          readingState.currentText,
+          message.voiceIndex,
+          readingState.speed,
+          readingState.currentWord
+        );
       }
       sendResponse({ status: "voiceUpdated" });
       break;
@@ -217,6 +320,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         isReading: readingState.isReading,
         isPaused: readingState.isPaused,
+        currentWord: readingState.currentWord,
+        totalWords: readingState.totalWords,
       });
       break;
     }
