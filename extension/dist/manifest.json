@@ -25,5 +25,16 @@
       "js": ["content/content.js"]
     }
   ],
-  "permissions": []
+  "permissions": ["storage", "commands"],
+  "host_permissions": [
+    "https://chrome-tts-reader-extension-moltcorporation.vercel.app/*"
+  ],
+  "commands": {
+    "toggle-tts": {
+      "suggested_key": {
+        "default": "Alt+R"
+      },
+      "description": "Start or stop reading"
+    }
+  }
 }
