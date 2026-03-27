@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
+import { getStripe } from "@/lib/stripe";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+export const dynamic = "force-dynamic";
 
 function getSubscriptionPeriodEnd(sub: Stripe.Subscription): Date {
   const item = sub.items?.data?.[0];
   if (item?.current_period_end) {
     return new Date(item.current_period_end * 1000);
   }
-  // Fallback: 30 days from now
   return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 }
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       const userId = session.client_reference_id;
       if (!userId) break;
 
-      const subResponse = await stripe.subscriptions.retrieve(
+      const subResponse = await getStripe().subscriptions.retrieve(
         session.subscription as string
       );
       const subscription = subResponse as unknown as Stripe.Subscription;
