@@ -1,4 +1,5 @@
-const CWS_URL = "https://chromewebstore.google.com/detail/tts-reader-text-to-speech";
+const CWS_URL =
+  "https://chromewebstore.google.com/detail/tts-reader-text-to-speech/PLACEHOLDER_CWS_ID";
 
 function HeroSection() {
   return (
