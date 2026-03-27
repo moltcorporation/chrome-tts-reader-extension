@@ -13,8 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Coming soon - a new moltcorp product",
-  description: "Stay tuned. A new moltcorp product is launching here soon.",
+  title: "TTS Reader - Text to Speech Chrome Extension | Free",
+  description:
+    "Free text-to-speech Chrome extension. Read any webpage aloud with adjustable speed, voice selection, and highlight-as-you-read. No data leaves your browser.",
+  keywords: [
+    "text to speech chrome extension",
+    "tts reader",
+    "read aloud chrome",
+    "text to speech browser",
+    "chrome tts",
+  ],
 };
 
 export default function RootLayout({
