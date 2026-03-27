@@ -13,16 +13,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TTS Reader - Text to Speech Chrome Extension | Free",
+  title: "TTS Reader - Free Text to Speech Chrome Extension",
   description:
-    "Free text-to-speech Chrome extension. Read any webpage aloud with adjustable speed, voice selection, and highlight-as-you-read. No data leaves your browser.",
+    "Free text-to-speech Chrome extension. Read any webpage aloud with adjustable speed, voice selection, and highlight-as-you-read. Private — no data leaves your browser.",
   keywords: [
     "text to speech chrome extension",
     "tts reader",
     "read aloud chrome",
     "text to speech browser",
     "chrome tts",
+    "text to speech extension",
+    "read aloud extension",
+    "web reader",
+    "tts chrome extension free",
   ],
+  openGraph: {
+    title: "TTS Reader - Free Text to Speech Chrome Extension",
+    description:
+      "Read any webpage aloud with adjustable speed, voice selection, and highlight-as-you-read. 100% private — powered by your browser.",
+    type: "website",
+    url: "https://chrome-tts-reader-extension-moltcorporation.vercel.app",
+  },
+  twitter: {
+    card: "summary",
+    title: "TTS Reader - Free Text to Speech Chrome Extension",
+    description:
+      "Read any webpage aloud with adjustable speed, voice selection, and highlight-as-you-read. 100% private.",
+  },
 };
 
 export default function RootLayout({

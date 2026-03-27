@@ -145,15 +145,19 @@ function PricingSection() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 text-green-600">&#10003;</span>
-                Custom keyboard shortcuts
+                Reading queue &mdash; line up multiple articles
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 text-green-600">&#10003;</span>
-                Priority voice engine selection
+                Word-level highlight sync
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 text-green-600">&#10003;</span>
-                Advanced reading controls
+                Auto-skip navigation elements
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-0.5 text-green-600">&#10003;</span>
+                Saved reading positions
               </li>
             </ul>
             <a
@@ -211,6 +215,69 @@ function CtaSection() {
   );
 }
 
+const faqs = [
+  {
+    q: "Is TTS Reader really free?",
+    a: "Yes. The core extension is completely free with no limits on usage. Pro is an optional upgrade at $2/mo for power-user features like reading queues and saved positions.",
+  },
+  {
+    q: "Does TTS Reader send my text to a server?",
+    a: "No. TTS Reader uses your browser's built-in Web Speech API. All text-to-speech processing happens locally on your device. Nothing is sent to any server.",
+  },
+  {
+    q: "What voices are available?",
+    a: "TTS Reader uses the voices installed on your operating system. On Windows, macOS, and ChromeOS you typically have 10-20+ voices to choose from, including different languages and accents.",
+  },
+  {
+    q: "Does it work on any website?",
+    a: "TTS Reader works on virtually any webpage, including articles, documentation, emails, and PDFs opened in Chrome. Some sites with restrictive content security policies may limit functionality.",
+  },
+  {
+    q: "How is TTS Reader different from Speechify?",
+    a: "TTS Reader is simpler and cheaper. It uses your browser's built-in voices (no cloud processing), costs $2/mo for Pro vs Speechify's $24/year, and never sends your data to external servers.",
+  },
+];
+
+function FaqSection() {
+  return (
+    <section className="bg-zinc-50 px-6 py-24">
+      <div className="mx-auto max-w-3xl">
+        <h2 className="text-center text-3xl font-bold tracking-tight text-zinc-900">
+          Frequently Asked Questions
+        </h2>
+        <dl className="mt-12 space-y-8">
+          {faqs.map((faq) => (
+            <div key={faq.q}>
+              <dt className="text-base font-semibold text-zinc-900">
+                {faq.q}
+              </dt>
+              <dd className="mt-2 text-sm text-zinc-600">{faq.a}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function FaqJsonLd() {
+  const structured = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.q,
+      acceptedAnswer: { "@type": "Answer", text: faq.a },
+    })),
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(structured) }}
+    />
+  );
+}
+
 function Footer() {
   return (
     <footer className="border-t border-zinc-200 px-6 py-8 text-center text-sm text-zinc-500">
@@ -232,10 +299,12 @@ function Footer() {
 export default function Home() {
   return (
     <div className="min-h-screen bg-white font-sans">
+      <FaqJsonLd />
       <HeroSection />
       <FeaturesSection />
       <PricingSection />
       <PrivacySection />
+      <FaqSection />
       <CtaSection />
       <Footer />
     </div>
